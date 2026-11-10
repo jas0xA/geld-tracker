@@ -1,4 +1,4 @@
-# Prism Additions — money tracker
+# Geld Tracker
 
 Track spending and earnings, recurring payments (salary, rent, subscriptions),
 your card and cash balance, and a forecast up to a year ahead.

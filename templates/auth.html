@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Prism Additions — Sign in{% endblock %}
+{% block title %}Geld Tracker — Sign in{% endblock %}
 {% block body_class %}auth-body{% endblock %}
 
 {% macro pw(name, placeholder, autocomplete, min=None) -%}
@@ -12,7 +12,7 @@
 {% block body %}
 {% with messages = get_flashed_messages(with_categories=true) %}
 <main class="auth-card {{ 'shake' if messages and messages[-1][0] != 'success' }}" data-active-tab="{{ active_tab }}">
-    <h1 class="brand">Prism Additions</h1>
+    <h1 class="brand">Geld Tracker</h1>
     <p class="tagline">Track what comes in and what goes out.</p>
 
     {% for category, message in messages %}

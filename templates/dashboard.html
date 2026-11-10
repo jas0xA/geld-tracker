@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon, category_picker, method_toggle %}
-{% block title %}Prism Additions — Dashboard{% endblock %}
+{% block title %}Geld Tracker — Dashboard{% endblock %}
 
 {% macro day_label(d) -%}
     {%- if d == today %}Today{% elif d == today - timedelta(days=1) %}Yesterday{% else %}{{ d.strftime('%A %d %B') }}{% endif -%}

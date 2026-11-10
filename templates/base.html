@@ -5,14 +5,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#3d2c22">
-    <title>{% block title %}Prism Additions{% endblock %}</title>
+    <title>{% block title %}Geld Tracker{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body class="{% block body_class %}has-bottom-nav{% endblock %}" id="top">
 {% block body %}
     {% set ep = request.endpoint %}
     <header class="topbar" id="topbar">
-        <a class="brand" href="{{ url_for('home') }}">Prism Additions</a>
+        <a class="brand" href="{{ url_for('home') }}">Geld Tracker</a>
         <nav>
             <a href="{{ url_for('home') }}" class="{{ 'active' if ep == 'home' }}">Dashboard</a>
             <a href="{{ url_for('forecast') }}" class="{{ 'active' if ep == 'forecast' }}">Forecast</a>

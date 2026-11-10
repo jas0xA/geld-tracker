@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "_ui.html" import icon %}
-{% block title %}Prism Additions — Balance{% endblock %}
+{% block title %}Geld Tracker — Balance{% endblock %}
 
 {% macro denom_label(c) -%}
 {%- if c >= 100 %}€{{ c // 100 }}{% else %}{{ c }}c{% endif -%}
