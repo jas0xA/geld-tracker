@@ -18,11 +18,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def load_secret_key():
-    """SECRET_KEY env var, else a key persisted in .secret_key (so sessions survive restarts)."""
+    """SECRET_KEY env var, else a key persisted in a file (so sessions survive restarts).
+    The file is SECRET_KEY_FILE, or .secret_key next to this file."""
     key = os.environ.get("SECRET_KEY")
     if key:
         return key
-    path = os.path.join(BASE_DIR, ".secret_key")
+    path = os.environ.get("SECRET_KEY_FILE") or os.path.join(BASE_DIR, ".secret_key")
     if os.path.exists(path):
         with open(path) as f:
             return f.read().strip()
@@ -34,6 +35,10 @@ def load_secret_key():
 
 
 app = Flask(__name__)
+if os.environ.get("BEHIND_PROXY") == "1":
+    # Trust one reverse proxy (nginx, Caddy, Traefik...) for the client IP and https scheme.
+    from werkzeug.middleware.proxy_fix import ProxyFix
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 app.secret_key = load_secret_key()
 app.config.update(
     SESSION_COOKIE_SAMESITE="Lax",

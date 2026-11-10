@@ -1,0 +1,20 @@
+services:
+  geld-tracker:
+    image: ghcr.io/jas0xa/geld-tracker:latest
+    # To build on the server instead of pulling, uncomment:
+    # build: .
+    container_name: geld-tracker
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # Set to "1" when you serve it over HTTPS (needed for secure cookies).
+      COOKIE_SECURE: "0"
+      # Set to "1" when it runs behind a reverse proxy (nginx, Caddy, Traefik...).
+      BEHIND_PROXY: "0"
+    volumes:
+      # Database and session key. Back this up.
+      - geld-data:/data
+
+volumes:
+  geld-data:

@@ -1,0 +1,13 @@
+.git
+.github
+.idea
+.venv
+__pycache__
+*.pyc
+users.db
+*.db
+.secret_key
+data
+Dockerfile
+docker-compose.yml
+README.md
