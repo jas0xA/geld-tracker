@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}Prism Additions — Admin{% endblock %}
+
+{% block content %}
+<div class="page-head" data-animate>
+    <div>
+        <h1>Admin</h1>
+        <div class="sub">Control who can create an account</div>
+    </div>
+</div>
+
+<div class="grid-main">
+    <div class="sticky-col">
+        <section class="panel" data-animate>
+            <div class="panel-head"><h2>Authorise an email</h2></div>
+            <form class="form" method="post" action="{{ url_for('admin') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <label>Email address
+                    <input type="email" name="email" placeholder="person@example.com" required maxlength="254" autocomplete="off">
+                </label>
+                <p class="hint">Only authorised emails can create an account.</p>
+                <button type="submit" class="btn">{{ icon('plus') }}Authorise</button>
+            </form>
+        </section>
+    </div>
+
+    <section class="panel" data-animate>
+        <div class="panel-head"><h2>Authorised emails</h2><span class="sub">{{ rows|length }} total</span></div>
+        {% if rows %}
+        <ul class="list-rows">
+            {% for r in rows %}
+            <li data-i="{{ loop.index0 }}">
+                <div>
+                    <div class="email">{{ r.email }}</div>
+                    <div class="sub">Added {{ r.added_at.strftime('%d %b %Y') }}</div>
+                </div>
+                <div class="row-right">
+                    {% if r.user %}
+                        <span class="tag ok">Registered as {{ r.user }}</span>
+                    {% else %}
+                        <span class="tag">Waiting to sign up</span>
+                        <form method="post" action="{{ url_for('admin_delete_email', email_id=r.id) }}" data-remove>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn ghost small danger">Revoke</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="empty">No emails authorised yet.</p>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

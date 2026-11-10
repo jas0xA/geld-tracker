@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+users.db
+.secret_key
+
+# PyCharm local-only files
+.idea/workspace.xml
+.idea/dataSources/
+.idea/dataSources.local.xml
+.idea/queries/

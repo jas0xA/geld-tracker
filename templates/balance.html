@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}Prism Additions — Balance{% endblock %}
+
+{% macro denom_label(c) -%}
+{%- if c >= 100 %}€{{ c // 100 }}{% else %}{{ c }}c{% endif -%}
+{%- endmacro %}
+
+{% block content %}
+<div class="page-head" data-animate>
+    <div>
+        <h1>Set your balance</h1>
+        <div class="sub">Enter what's on your card and count your cash. After this, every entry and recurring payment is added automatically.</div>
+    </div>
+</div>
+
+<form method="post" action="{{ url_for('balance') }}" id="balance-form" class="balance-layout"
+      data-tracked='{{ (tracked or {})|tojson|forceescape }}'>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <div class="stack">
+        <section class="panel" data-animate>
+            <div class="panel-head">
+                <h2>{{ icon('card') }} Card / bank</h2>
+                {% if tracked %}<span class="sub">Tracked: {{ tracked.card|money }}</span>{% endif %}
+            </div>
+            <label>Amount in your account
+                <span class="amount-field">
+                    <input type="text" name="card" id="card" inputmode="decimal" placeholder="0.00" autocomplete="off"
+                           value="{{ '%.2f'|format(tracked.card / 100) if tracked else '' }}">
+                    <span class="currency" aria-hidden="true">€</span>
+                </span>
+            </label>
+            <p class="hint">Can be negative if you're overdrawn.</p>
+        </section>
+
+        <section class="panel" data-animate>
+            <div class="panel-head">
+                <h2>{{ icon('cash') }} Cash</h2>
+                <button type="button" class="btn ghost" id="reset-cash">{{ icon('reset') }}Reset</button>
+            </div>
+            <label>Type an amount
+                <span class="amount-field">
+                    <input type="text" name="cash_typed" id="cash-typed" inputmode="decimal" placeholder="0.00" autocomplete="off">
+                    <span class="currency" aria-hidden="true">€</span>
+                </span>
+            </label>
+            <p class="hint">…and/or tap your notes and coins below. Both are added up.</p>
+
+            <div class="denom-head"><span class="field-label">Notes</span><span class="sub" id="notes-total">€0.00</span></div>
+            <div class="denoms notes">
+                {% for c in notes %}
+                <div class="denom note" data-cents="{{ c }}">
+                    <button type="button" class="denom-add" aria-label="Add a {{ denom_label(c) }} note">
+                        <span class="denom-value">{{ denom_label(c) }}</span>
+                        <span class="denom-count" aria-live="polite">0</span>
+                    </button>
+                    <button type="button" class="denom-minus" aria-label="Remove a {{ denom_label(c) }} note">{{ icon('minus') }}</button>
+                    <input type="hidden" name="n_{{ c }}" value="0">
+                </div>
+                {% endfor %}
+            </div>
+
+            <div class="denom-head"><span class="field-label">Coins</span><span class="sub" id="coins-total">€0.00</span></div>
+            <div class="denoms coins">
+                {% for c in coins %}
+                <div class="denom coin" data-cents="{{ c }}">
+                    <button type="button" class="denom-add" aria-label="Add a {{ denom_label(c) }} coin">
+                        <span class="denom-value">{{ denom_label(c) }}</span>
+                        <span class="denom-count" aria-live="polite">0</span>
+                    </button>
+                    <button type="button" class="denom-minus" aria-label="Remove a {{ denom_label(c) }} coin">{{ icon('minus') }}</button>
+                    <input type="hidden" name="n_{{ c }}" value="0">
+                </div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <div class="sticky-col">
+        <section class="panel summary-panel" data-animate>
+            <div class="panel-head"><h2>Total</h2></div>
+            <div class="sum-row"><span>{{ icon('card') }}Card</span><strong id="sum-card" class="money">€0.00</strong></div>
+            <div class="sum-row"><span>{{ icon('cash') }}Cash typed</span><strong id="sum-typed" class="money">€0.00</strong></div>
+            <div class="sum-row"><span>{{ icon('cash') }}Cash counted</span><strong id="sum-counted" class="money">€0.00</strong></div>
+            <div class="sum-total"><span>Balance</span><strong id="sum-total" class="money">€0.00</strong></div>
+            {% if tracked %}
+            <div class="delta" id="sum-diff"></div>
+            {% endif %}
+            <button type="submit" class="btn wide">{{ icon('check') }}Save balance</button>
+        </section>
+
+        {% if history %}
+        <section class="panel" data-animate>
+            <div class="panel-head"><h2>Earlier counts</h2></div>
+            <ul class="mini-list">
+                {% for h in history %}
+                <li><span>{{ h.set_at.strftime('%d %b %Y, %H:%M') }}</span><span>{{ (h.card_cents + h.cash_cents)|money }}</span></li>
+                {% endfor %}
+            </ul>
+        </section>
+        {% endif %}
+    </div>
+
+    {# Mobile: total + save stay visible above the bottom bar. #}
+    <div class="save-bar">
+        <div><span class="sub">Balance</span><strong id="bar-total" class="money">€0.00</strong></div>
+        <button type="submit" class="btn">{{ icon('check') }}Save</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block fab %}{% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='balance.js') }}"></script>{% endblock %}

@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, category_picker, method_toggle %}
+{% block title %}Prism Additions — Dashboard{% endblock %}
+
+{% macro day_label(d) -%}
+    {%- if d == today %}Today{% elif d == today - timedelta(days=1) %}Yesterday{% else %}{{ d.strftime('%A %d %B') }}{% endif -%}
+{%- endmacro %}
+
+{% block content %}
+<div class="page-head" data-animate>
+    <div>
+        <h1 id="greeting">Welcome back, {{ current_user.name }}</h1>
+        <div class="sub">{{ today.strftime('%A %d %B %Y') }}</div>
+    </div>
+</div>
+
+<section class="grid-hero">
+    <article class="panel lift" data-animate>
+        <div class="card-title">
+            <h2>Balance</h2>
+            <a class="sub link" href="{{ url_for('balance') }}">{{ 'Count again' if balance else 'Set balance' }} {{ icon('arrow') }}</a>
+        </div>
+        {% if balance %}
+        <div class="big-net money {{ 'pos' if balance.total >= 0 else 'neg' }}" data-count="{{ balance.total }}">{{ balance.total|money }}</div>
+        <div class="split">
+            <div><span class="sub">{{ icon('card') }}Card</span><strong class="money" data-count="{{ balance.card }}">{{ balance.card|money }}</strong></div>
+            <div><span class="sub">{{ icon('cash') }}Cash</span><strong class="money" data-count="{{ balance.cash }}">{{ balance.cash|money }}</strong></div>
+        </div>
+        <div class="delta">Counted {{ balance.set_at.strftime('%d %b %Y, %H:%M') }} · everything since is added automatically</div>
+        {% else %}
+        <p class="empty-inline">Set your current balance once. From then on every entry and recurring payment keeps it up to date.</p>
+        <a class="btn" href="{{ url_for('balance') }}">{{ icon('wallet') }}Set my balance</a>
+        {% endif %}
+    </article>
+
+    <article class="panel lift" data-animate>
+        <div class="card-title">
+            <h2>Forecast</h2>
+            <a class="sub link" href="{{ url_for('forecast') }}">Details {{ icon('arrow') }}</a>
+        </div>
+        {% set f_this = forecast.fixed[forecast.end_this.index] %}
+        {% set f_next = forecast.fixed[forecast.end_next.index] %}
+        <div class="split">
+            <div><span class="sub">End of {{ forecast.end_this.label }}</span><strong class="money {{ 'neg' if f_this < 0 }}" data-count="{{ f_this }}">{{ f_this|money }}</strong></div>
+            <div><span class="sub">End of {{ forecast.end_next.label }}</span><strong class="money big {{ 'neg' if f_next < 0 else 'pos' }}" data-count="{{ f_next }}">{{ f_next|money }}</strong></div>
+        </div>
+        <div class="delta">With recurring payments and income{% if not forecast.has_balance %}, starting from €0 because no balance is set{% endif %}.</div>
+        {% if upcoming %}
+        <ul class="mini-list">
+            {% for e in upcoming %}
+            <li><span>{{ e.date|rel_date }} · {{ e.description }}</span><span class="{{ 'pos' if e.cents > 0 else 'neg' }}">{{ e.cents|money(signed=True) }}</span></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p class="delta"><a href="{{ url_for('recurring') }}">Add your salary and subscriptions</a> to see what's coming.</p>
+        {% endif %}
+    </article>
+</section>
+
+<section class="grid-cards" id="cards" aria-label="Totals">
+    {% for c in cards %}
+    <article class="panel lift" data-animate>
+        <div class="card-title">
+            <h2>This {{ c.period }}</h2>
+            <span class="sub">{{ c.label }}</span>
+        </div>
+        <div class="big-net money {{ 'pos' if c.totals.net >= 0 else 'neg' }}" data-count="{{ c.totals.net }}" data-signed="1">{{ c.totals.net|money(signed=True) }}</div>
+        <div class="stat-row"><span><i class="dot in"></i>Earned</span><span class="money" data-count="{{ c.totals.income }}">{{ c.totals.income|money }}</span></div>
+        <div class="stat-row"><span><i class="dot out"></i>Spent</span><span class="money" data-count="{{ c.totals.expense }}">{{ c.totals.expense|money }}</span></div>
+        <div class="meter">
+            <div class="meter-track"><div class="meter-fill {{ 'over' if (c.spent_pct and c.spent_pct > 100) or (c.spent_pct is none and c.totals.expense) }}" data-width="{{ [c.spent_pct or (100 if c.totals.expense else 0), 100]|min }}"></div></div>
+            <div class="meter-label">
+                <span>{% if c.spent_pct is not none %}Spent {{ c.spent_pct }}% of earnings{% elif c.totals.expense %}No earnings yet{% else %}Nothing spent yet{% endif %}</span>
+            </div>
+        </div>
+        <div class="delta">
+            {% if c.expense_change is none %}No spending last {{ c.period }} to compare
+            {% else %}
+                {% set up = c.expense_change > 0 %}
+                <span class="chip {{ 'neg' if up else ('pos' if c.expense_change < 0) }}">{{ '▲' if up else ('▼' if c.expense_change < 0 else '–') }} {{ c.expense_change|abs }}%</span>
+                spending vs last {{ c.period }}
+            {% endif %}
+        </div>
+    </article>
+    {% endfor %}
+</section>
+<div class="card-dots" id="card-dots" aria-hidden="true">{% for c in cards %}<span class="{{ 'on' if loop.first }}"></span>{% endfor %}</div>
+
+<div class="grid-main">
+    <div class="sticky-col">
+        <section class="panel add-panel" id="add" data-animate aria-labelledby="add-title">
+            <div class="sheet-handle" aria-hidden="true"></div>
+            <div class="panel-head">
+                <h2 id="add-title">Add entry</h2>
+                <button type="button" class="btn ghost icon sheet-close" aria-label="Close">{{ icon('x') }}</button>
+            </div>
+            <form class="form" id="add-form" method="post" action="{{ url_for('add_transaction') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="seg" data-seg role="radiogroup" aria-label="Type">
+                    <input type="radio" name="kind" id="kind-expense" value="expense" checked>
+                    <label for="kind-expense">Spending</label>
+                    <input type="radio" name="kind" id="kind-income" value="income">
+                    <label for="kind-income">Earning</label>
+                </div>
+                <label>Amount
+                    <span class="amount-field">
+                        <input type="text" name="amount" id="amount" inputmode="decimal" placeholder="0.00" required autocomplete="off" enterkeyhint="done">
+                        <span class="currency" aria-hidden="true">€</span>
+                    </span>
+                </label>
+                {{ method_toggle('card', 'add') }}
+                <label>Description
+                    <input type="text" name="description" placeholder="e.g. Lunch" maxlength="120" autocomplete="off">
+                </label>
+                {{ category_picker(categories, custom_categories) }}
+                <div class="when-field">
+                    <label>Date &amp; time
+                        <input type="datetime-local" name="when" id="when" step="60"
+                               value="{{ now.strftime('%Y-%m-%dT%H:%M') }}" max="{{ now.strftime('%Y-%m-%dT%H:%M') }}">
+                    </label>
+                    <div class="when-quick" role="group" aria-label="Quick dates">
+                        <button type="button" class="btn ghost small" data-when="0">Now</button>
+                        <button type="button" class="btn ghost small" data-when="1">Yesterday</button>
+                    </div>
+                </div>
+                <p class="hint" id="when-hint">{{ icon('clock') }}<span id="when-text">Saved as right now. Pick another date if it happened earlier.</span></p>
+                <button type="submit" class="btn">{{ icon('plus') }}Add entry</button>
+            </form>
+        </section>
+    </div>
+
+    <div class="stack">
+        <section class="panel chart-panel" id="charts" data-animate data-initial='{{ initial|tojson|forceescape }}'>
+            <div class="panel-head">
+                <div>
+                    <h2>Earnings &amp; spending</h2>
+                    <div class="sub"><span class="range-label" id="range-label">{{ initial.label }}</span></div>
+                </div>
+                <div class="seg compact" data-seg id="period-tabs" role="tablist" aria-label="Period">
+                    <button type="button" role="tab" data-period="week">Week</button>
+                    <button type="button" role="tab" data-period="month" class="active" aria-selected="true">Month</button>
+                    <button type="button" role="tab" data-period="year">Year</button>
+                </div>
+            </div>
+            <div class="chart-box"><canvas id="chart-bars" role="img" aria-label="Earnings and spending per period"></canvas></div>
+        </section>
+
+        <section class="panel chart-panel" id="compare" data-animate>
+            <div class="panel-head">
+                <div>
+                    <h2>Compare with last <span class="noun">month</span></h2>
+                    <div class="sub">Running total · <span id="cmp-ranges"></span></div>
+                </div>
+                <div class="seg compact" data-seg id="metric-tabs" role="tablist" aria-label="Metric">
+                    <button type="button" role="tab" data-metric="expense" class="active" aria-selected="true">Spending</button>
+                    <button type="button" role="tab" data-metric="income">Earnings</button>
+                    <button type="button" role="tab" data-metric="net">Net</button>
+                </div>
+            </div>
+            <div class="chart-box"><canvas id="chart-compare" role="img" aria-label="Running total compared with the previous period"></canvas></div>
+            <table class="compare-table">
+                <thead><tr><th></th><th>This <span class="noun">month</span></th><th>Last <span class="noun">month</span></th><th>Change</th></tr></thead>
+                <tbody id="compare-body"></tbody>
+            </table>
+        </section>
+
+        <section class="panel chart-panel" id="categories" data-animate>
+            <div class="panel-head">
+                <div>
+                    <h2>Where it went</h2>
+                    <div class="sub">Spending by category this <span class="noun">month</span></div>
+                </div>
+            </div>
+            <div class="donut-wrap">
+                <div class="donut-box">
+                    <canvas id="chart-donut" role="img" aria-label="Spending by category"></canvas>
+                    <div class="donut-center"><strong id="donut-total">€0.00</strong><span>spent</span></div>
+                </div>
+                <ul class="cat-list" id="cat-list"></ul>
+            </div>
+        </section>
+
+        <section class="panel" id="entries" data-animate>
+            <div class="panel-head"><h2>Recent entries</h2><span class="sub">Latest 25</span></div>
+            {% if recent %}
+            <ul class="entries">
+                {% for t in recent %}
+                    {% set d = t.created_at.date() %}
+                    {% if loop.first or loop.previtem.created_at.date() != d %}
+                    <li class="day-head">{{ day_label(d) }}</li>
+                    {% endif %}
+                    <li class="entry {{ 'new' if t.id == new_tx }}" data-i="{{ loop.index0 }}">
+                        <span class="entry-icon {{ 'in' if t.kind == 'income' else 'out' }}" aria-hidden="true">{{ icon('repeat' if t.recurring_id else ('cash' if t.method == 'cash' else 'card')) }}</span>
+                        <div class="entry-main">
+                            <div class="entry-title">{{ t.description or t.category }}</div>
+                            <div class="entry-meta">{% if t.recurring_id %}Recurring{% else %}{{ t.created_at.strftime('%H:%M') }}{% endif %} · {{ t.category }} · {{ 'Cash' if t.method == 'cash' else 'Card' }}</div>
+                        </div>
+                        <span class="entry-amount {{ 'pos' if t.kind == 'income' else 'neg' }}">{{ (t.amount_cents if t.kind == 'income' else -t.amount_cents)|money(signed=True) }}</span>
+                        <form method="post" action="{{ url_for('delete_transaction', tx_id=t.id) }}" data-remove>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn ghost icon danger" aria-label="Delete {{ t.description or t.category }}">{{ icon('trash') }}</button>
+                        </form>
+                    </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty">No entries yet. Add your first spending or earning.</div>
+            {% endif %}
+        </section>
+    </div>
+</div>
+<div class="sheet-backdrop" id="sheet-backdrop"></div>
+{% endblock %}
+
+{% block fab %}
+<button type="button" class="fab" id="fab" aria-label="Add entry" aria-controls="add" aria-expanded="false">{{ icon('plus') }}</button>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='dashboard.js') }}"></script>
+{% endblock %}

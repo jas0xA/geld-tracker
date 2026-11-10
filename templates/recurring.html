@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon, category_picker, method_toggle %}
+{% block title %}Prism Additions — Recurring{% endblock %}
+
+{% block content %}
+<div class="page-head" data-animate>
+    <div>
+        <h1>Recurring</h1>
+        <div class="sub">Salary, rent, subscriptions and planned purchases. They're booked automatically on their date.</div>
+    </div>
+</div>
+
+<section class="grid-cards" aria-label="Monthly totals">
+    <article class="panel" data-animate>
+        <div class="card-title"><h2>Income per month</h2></div>
+        <div class="big-net money pos" data-count="{{ monthly_in }}">{{ monthly_in|money }}</div>
+    </article>
+    <article class="panel" data-animate>
+        <div class="card-title"><h2>Fixed costs per month</h2></div>
+        <div class="big-net money neg" data-count="{{ monthly_out }}">{{ monthly_out|money }}</div>
+        {% if monthly_in %}
+        <div class="meter"><div class="meter-track"><div class="meter-fill {{ 'over' if monthly_out > monthly_in }}" data-width="{{ [(monthly_out / monthly_in * 100)|round|int, 100]|min }}"></div></div>
+        <div class="meter-label"><span>{{ (monthly_out / monthly_in * 100)|round|int }}% of your income</span></div></div>
+        {% endif %}
+    </article>
+    <article class="panel" data-animate>
+        <div class="card-title"><h2>Left over per month</h2></div>
+        {% set left = monthly_in - monthly_out %}
+        <div class="big-net money {{ 'pos' if left >= 0 else 'neg' }}" data-count="{{ left }}" data-signed="1">{{ left|money(signed=True) }}</div>
+        <div class="delta">Before day-to-day spending. Weekly and yearly items are averaged per month.</div>
+    </article>
+</section>
+
+<div class="grid-main list-first-mobile">
+    <div class="sticky-col">
+        <section class="panel" id="rec-form" data-animate>
+            <div class="panel-head">
+                <h2>{{ 'Edit ' ~ edit.description if edit else 'Add recurring' }}</h2>
+                {% if edit %}<a class="btn ghost" href="{{ url_for('recurring') }}">Cancel</a>{% endif %}
+            </div>
+            {% set f = request.form if request.method == 'POST' else {} %}
+            {% set v_kind = f.get('kind') or (edit.kind if edit else 'expense') %}
+            <form class="form" method="post" action="{{ url_for('recurring_save', rid=edit.id) if edit else url_for('recurring_save') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <div class="seg" data-seg role="radiogroup" aria-label="Type">
+                    <input type="radio" name="kind" id="r-expense" value="expense" {{ 'checked' if v_kind == 'expense' }}>
+                    <label for="r-expense">Payment</label>
+                    <input type="radio" name="kind" id="r-income" value="income" {{ 'checked' if v_kind == 'income' }}>
+                    <label for="r-income">Income</label>
+                </div>
+                <label>Name
+                    <input type="text" name="description" required maxlength="80" placeholder="e.g. Netflix, Rent, Salary" autocomplete="off"
+                           value="{{ f.get('description') or (edit.description if edit else '') }}">
+                </label>
+                <label>Amount
+                    <span class="amount-field">
+                        <input type="text" name="amount" inputmode="decimal" placeholder="0.00" required autocomplete="off"
+                               value="{{ f.get('amount') or ('%.2f'|format(edit.amount_cents / 100) if edit else '') }}">
+                        <span class="currency" aria-hidden="true">€</span>
+                    </span>
+                </label>
+                <label>How often
+                    {% set v_freq = f.get('frequency') or (edit.frequency if edit else 'monthly') %}
+                    <select name="frequency" id="frequency">
+                        {% for key, label in frequencies.items() %}
+                        <option value="{{ key }}" {{ 'selected' if key == v_freq }}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </label>
+                <div class="grid-2 tight">
+                    <label><span id="next-label">Next date</span>
+                        <input type="date" name="next_date" required min="{{ today.isoformat() }}"
+                               value="{{ f.get('next_date') or (edit.next_date.isoformat() if edit else today.isoformat()) }}">
+                    </label>
+                    <label class="end-field">Ends (optional)
+                        <input type="date" name="end_date" value="{{ f.get('end_date') or (edit.end_date.isoformat() if edit and edit.end_date else '') }}">
+                    </label>
+                </div>
+                {{ method_toggle(f.get('method') or (edit.method if edit else 'card'), 'r') }}
+                {{ category_picker(categories, custom_categories, f.get('category') or (edit.category if edit else 'Subscriptions')) }}
+                <p class="hint">{{ icon('repeat') }}<span>Choose <strong>Once</strong> for a planned purchase so it's counted in your forecast.</span></p>
+                <button type="submit" class="btn">{{ icon('check' if edit else 'plus') }}{{ 'Save changes' if edit else 'Add recurring' }}</button>
+            </form>
+        </section>
+    </div>
+
+    <div class="stack">
+        {% for kind, title in [('income', 'Income'), ('expense', 'Payments')] %}
+        {% set group = items|selectattr('kind', 'equalto', kind)|list %}
+        <section class="panel" data-animate>
+            <div class="panel-head"><h2>{{ title }}</h2><span class="sub">{{ group|length }} item{{ 's' if group|length != 1 }}</span></div>
+            {% if group %}
+            <ul class="rec-list">
+                {% for r in group %}
+                <li class="rec {{ 'paused' if not r.active }} {{ 'editing' if edit and edit.id == r.id }}" data-i="{{ loop.index0 }}">
+                    <span class="entry-icon {{ 'in' if kind == 'income' else 'out' }}" aria-hidden="true">{{ icon('repeat' if r.frequency != 'once' else 'clock') }}</span>
+                    <div class="entry-main">
+                        <div class="entry-title">{{ r.description }}</div>
+                        <div class="entry-meta">
+                            {{ frequencies[r.frequency] }} · {{ r.category }} · {{ 'Cash' if r.method == 'cash' else 'Card' }}
+                        </div>
+                        <div class="entry-meta">
+                            {% if not r.active and r.frequency == 'once' and r.next_date <= today %}Done
+                            {% elif not r.active %}<span class="tag">Paused</span>
+                            {% else %}Next: <strong>{{ r.next_date|rel_date }}</strong>{% if r.end_date %} · until {{ r.end_date.strftime('%d %b %Y') }}{% endif %}{% endif %}
+                        </div>
+                    </div>
+                    <div class="rec-amount">
+                        <span class="entry-amount {{ 'pos' if kind == 'income' else 'neg' }}">{{ (r.amount_cents if kind == 'income' else -r.amount_cents)|money(signed=True) }}</span>
+                        {% if r.frequency not in ('monthly', 'once') %}<span class="sub">≈ {{ monthly_equivalent(r)|money }}/month</span>{% endif %}
+                    </div>
+                    <div class="rec-actions">
+                        <a class="btn ghost icon" href="{{ url_for('recurring_edit', rid=r.id) }}#rec-form" aria-label="Edit {{ r.description }}">{{ icon('edit') }}</a>
+                        {% if not (r.frequency == 'once' and not r.active) %}
+                        <form method="post" action="{{ url_for('recurring_toggle', rid=r.id) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn ghost icon" aria-label="{{ 'Pause' if r.active else 'Resume' }} {{ r.description }}">{{ icon('pause' if r.active else 'play') }}</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="{{ url_for('recurring_delete', rid=r.id) }}" data-remove data-confirm="Remove {{ r.description }}? Entries already booked stay.">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                            <button type="submit" class="btn ghost icon danger" aria-label="Remove {{ r.description }}">{{ icon('trash') }}</button>
+                        </form>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty">{{ 'No income yet. Add your salary to forecast what you\'ll have.' if kind == 'income' else 'No payments yet. Add rent, subscriptions or insurance.' }}</div>
+            {% endif %}
+        </section>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='recurring.js') }}"></script>{% endblock %}

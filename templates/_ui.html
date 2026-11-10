@@ -1,0 +1,64 @@
+{% macro icon(name) -%}
+<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+{%- if name == 'home' %}<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>
+{%- elif name == 'chart' %}<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>
+{%- elif name == 'list' %}<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+{%- elif name == 'shield' %}<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>
+{%- elif name == 'plus' %}<path d="M12 5v14M5 12h14"/>
+{%- elif name == 'minus' %}<path d="M5 12h14"/>
+{%- elif name == 'x' %}<path d="M6 6l12 12M18 6L6 18"/>
+{%- elif name == 'out' %}<path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"/>
+{%- elif name == 'check' %}<path d="M5 12l5 5 9-10"/>
+{%- elif name == 'alert' %}<path d="M12 8v5M12 16.5v.01"/><circle cx="12" cy="12" r="9"/>
+{%- elif name == 'clock' %}<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+{%- elif name == 'trash' %}<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>
+{%- elif name == 'repeat' %}<path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/>
+{%- elif name == 'wallet' %}<path d="M3 7a2 2 0 0 1 2-2h13v4"/><path d="M3 7v11a2 2 0 0 0 2 2h15V9H5a2 2 0 0 1-2-2z"/><path d="M16 14.5h.01"/>
+{%- elif name == 'trend' %}<path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/>
+{%- elif name == 'card' %}<rect x="2.5" y="5" width="19" height="14" rx="1.5"/><path d="M2.5 10h19M6 15h4"/>
+{%- elif name == 'cash' %}<rect x="2.5" y="6" width="19" height="12" rx="1"/><circle cx="12" cy="12" r="2.5"/><path d="M6 9v.01M18 15v.01"/>
+{%- elif name == 'edit' %}<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/>
+{%- elif name == 'pause' %}<path d="M9 5v14M15 5v14"/>
+{%- elif name == 'play' %}<path d="M7 5l12 7-12 7z"/>
+{%- elif name == 'arrow' %}<path d="M5 12h14M13 6l6 6-6 6"/>
+{%- elif name == 'reset' %}<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>
+{%- endif %}
+</svg>
+{%- endmacro %}
+
+{# Category chips + "add your own" type bar. JS in app.js handles adding/removing. #}
+{% macro category_picker(defaults, custom, selected='') -%}
+<div class="field-label" id="cat-label">Category</div>
+<div class="cat-picker" role="radiogroup" aria-labelledby="cat-label" data-cat-picker
+     data-add-url="{{ url_for('add_category') }}" data-delete-url="{{ url_for('delete_category', cat_id=0) }}">
+    {% set sel = selected or defaults[0] %}
+    {% for cat in defaults %}
+    <span class="cat-chip">
+        <input type="radio" name="category" id="cat-d{{ loop.index }}" value="{{ cat }}" {{ 'checked' if cat == sel }}>
+        <label for="cat-d{{ loop.index }}">{{ cat }}</label>
+    </span>
+    {% endfor %}
+    {% for c in custom %}
+    <span class="cat-chip custom" data-id="{{ c.id }}">
+        <input type="radio" name="category" id="cat-c{{ c.id }}" value="{{ c.name }}" {{ 'checked' if c.name == sel }}>
+        <label for="cat-c{{ c.id }}">{{ c.name }}</label>
+        <button type="button" class="chip-x" aria-label="Remove category {{ c.name }}">{{ icon('x') }}</button>
+    </span>
+    {% endfor %}
+</div>
+<div class="cat-add">
+    <input type="text" maxlength="32" placeholder="Type to add your own category…" aria-label="New category name" data-cat-input autocomplete="off" enterkeyhint="done">
+    <button type="button" class="btn ghost" data-cat-add>{{ icon('plus') }}Add</button>
+</div>
+<p class="hint cat-error" data-cat-error hidden></p>
+{%- endmacro %}
+
+{# Card / cash toggle #}
+{% macro method_toggle(selected='card', prefix='m') -%}
+<div class="seg" data-seg role="radiogroup" aria-label="Paid with">
+    <input type="radio" name="method" id="{{ prefix }}-card" value="card" {{ 'checked' if selected != 'cash' }}>
+    <label for="{{ prefix }}-card">{{ icon('card') }}Card</label>
+    <input type="radio" name="method" id="{{ prefix }}-cash" value="cash" {{ 'checked' if selected == 'cash' }}>
+    <label for="{{ prefix }}-cash">{{ icon('cash') }}Cash</label>
+</div>
+{%- endmacro %}

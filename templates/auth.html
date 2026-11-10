@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Prism Additions — Sign in{% endblock %}
+{% block body_class %}auth-body{% endblock %}
+
+{% macro pw(name, placeholder, autocomplete, min=None) -%}
+<span class="pw-wrap">
+    <input type="password" name="{{ name }}" placeholder="{{ placeholder }}" required autocomplete="{{ autocomplete }}" {% if min %}minlength="{{ min }}"{% endif %}>
+    <button type="button" class="pw-toggle" aria-label="Show password">Show</button>
+</span>
+{%- endmacro %}
+
+{% block body %}
+{% with messages = get_flashed_messages(with_categories=true) %}
+<main class="auth-card {{ 'shake' if messages and messages[-1][0] != 'success' }}" data-active-tab="{{ active_tab }}">
+    <h1 class="brand">Prism Additions</h1>
+    <p class="tagline">Track what comes in and what goes out.</p>
+
+    {% for category, message in messages %}
+        <div class="flash {{ 'success' if category == 'success' }}" role="alert">{{ message }}</div>
+    {% endfor %}
+
+    <div class="seg" data-seg role="tablist">
+        <button type="button" id="tab-login" class="active" role="tab" aria-selected="true" aria-controls="form-login">Sign in</button>
+        <button type="button" id="tab-signup" role="tab" aria-selected="false" aria-controls="form-signup">Sign up</button>
+    </div>
+
+    <div class="auth-forms">
+        <form id="form-login" class="form active" method="post" action="{{ url_for('login') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>Username
+                <input type="text" name="username" placeholder="Your username" required autocomplete="username" autocapitalize="none" spellcheck="false">
+            </label>
+            <label>Password {{ pw('password', '••••••••', 'current-password') }}</label>
+            <label class="check"><input type="checkbox" name="remember" value="1" checked><span>Keep me signed in for 30 days</span></label>
+            <button type="submit" class="btn">Sign in</button>
+        </form>
+
+        <form id="form-signup" class="form" method="post" action="{{ url_for('signup') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <label>Username
+                <input type="text" name="username" placeholder="Pick a username" required autocomplete="username" minlength="3" maxlength="32" autocapitalize="none" spellcheck="false">
+            </label>
+            <label>Email
+                <input type="email" name="email" placeholder="you@example.com" required autocomplete="email">
+            </label>
+            <p class="hint">Your email must be authorised by an admin first.</p>
+            <label>Password {{ pw('password', 'At least 8 characters', 'new-password', 8) }}</label>
+            <label>Confirm password {{ pw('confirm', 'Repeat password', 'new-password', 8) }}</label>
+            <button type="submit" class="btn">Create account</button>
+        </form>
+    </div>
+</main>
+{% endwith %}
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='auth.js') }}"></script>{% endblock %}

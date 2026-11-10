@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% from "_ui.html" import icon %}
+{% block title %}Prism Additions — Forecast{% endblock %}
+
+{% block content %}
+<div class="page-head" data-animate>
+    <div>
+        <h1>Forecast</h1>
+        <div class="sub">What you'll have, based on your balance, salary, subscriptions and planned purchases.</div>
+    </div>
+</div>
+
+{% if not data.has_balance %}
+<div class="callout" data-animate>
+    {{ icon('alert') }}
+    <span>No balance set yet, so this starts from €0. <a href="{{ url_for('balance') }}">Set your balance</a> for a real forecast.</span>
+</div>
+{% endif %}
+
+<div id="forecast" data-forecast='{{ data|tojson|forceescape }}'>
+    <section class="grid-cards stack-mobile" id="cards" aria-label="Forecast totals">
+        <article class="panel lift" data-animate>
+            <div class="card-title"><h2>Now</h2><span class="sub">{{ today.strftime('%d %b') }}</span></div>
+            <div class="big-net money" id="fc-now">{{ data.start|money }}</div>
+            <div class="delta">Card {{ data.card|money }} · Cash {{ data.cash|money }}</div>
+        </article>
+        {% if data.horizon.months == 1 %}
+            {% set picks = [data.end_this, data.end_next] %}
+        {% else %}
+            {% set picks = [data.end_next, data.horizon] %}
+        {% endif %}
+        {% for p in picks %}
+        <article class="panel lift" data-animate>
+            <div class="card-title"><h2>End of {{ p.label }}</h2><span class="sub">{{ p.date|rel_date }}</span></div>
+            <div class="big-net money" data-fc-index="{{ p.index }}">–</div>
+            <div class="delta" data-fc-delta="{{ p.index }}"></div>
+        </article>
+        {% endfor %}
+    </section>
+
+    <div class="grid-main">
+        <div class="sticky-col stack">
+            <section class="panel" data-animate>
+                <div class="panel-head"><h2>Can I afford it?</h2></div>
+                <label>Price
+                    <span class="amount-field">
+                        <input type="text" id="afford" inputmode="decimal" placeholder="0.00" autocomplete="off">
+                        <span class="currency" aria-hidden="true">€</span>
+                    </span>
+                </label>
+                <div class="seg" data-seg id="afford-when" role="tablist" aria-label="When">
+                    <button type="button" class="active" data-when="now">Buy now</button>
+                    <button type="button" data-when="next">Next month</button>
+                </div>
+                <div class="verdict" id="verdict" aria-live="polite">
+                    <p class="sub">Type a price to see if you'll still have enough.</p>
+                </div>
+                <p class="hint">Want it in the forecast? <a href="{{ url_for('recurring') }}">Add it as a one-off</a>.</p>
+            </section>
+
+            <section class="panel" data-animate>
+                <div class="panel-head"><h2>Every month</h2><a class="sub link" href="{{ url_for('recurring') }}">Manage {{ icon('arrow') }}</a></div>
+                <div class="stat-row"><span><i class="dot in"></i>Fixed income</span><span class="money pos">{{ data.monthly.income|money }}</span></div>
+                <div class="stat-row"><span><i class="dot out"></i>Fixed costs</span><span class="money neg">{{ data.monthly.expense|money }}</span></div>
+                <div class="stat-row total"><span>Left over</span>
+                    {% set left = data.monthly.net %}
+                    <span class="money {{ 'pos' if left >= 0 else 'neg' }}">{{ left|money(signed=True) }}</span></div>
+                <p class="hint">Weekly and yearly items are averaged per month.</p>
+            </section>
+        </div>
+
+        <div class="stack">
+            <section class="panel chart-panel" id="fc-chart-panel" data-animate>
+                <div class="panel-head">
+                    <div>
+                        <h2>Projected balance</h2>
+                        <div class="sub" id="fc-lowest"></div>
+                    </div>
+                    <nav class="seg compact" data-seg aria-label="How far ahead">
+                        {% for m, label in ranges.items() %}
+                        <a href="{{ url_for('forecast', months=m) }}#fc-chart-panel" class="{{ 'active' if m == data.horizon.months }}" {% if m == data.horizon.months %}aria-current="page"{% endif %}>{{ label }}</a>
+                        {% endfor %}
+                    </nav>
+                </div>
+                <div class="chart-box tall"><canvas id="fc-chart" role="img" aria-label="Projected balance per day"></canvas></div>
+            </section>
+
+            <section class="panel" data-animate>
+                <div class="panel-head"><h2>Coming up</h2><span class="sub">Until {{ data.horizon.date|rel_date }}</span></div>
+                {% if data.events %}
+                <ul class="entries">
+                    {% for e in data.events %}
+                        {% set m = e.date[:7] %}
+                        {% if loop.first or loop.previtem.date[:7] != m %}
+                        <li class="day-head"><span>{{ e.date|month_name }}</span></li>
+                        {% endif %}
+                        <li class="entry" data-i="{{ loop.index0 }}">
+                            <span class="entry-icon {{ 'in' if e.cents > 0 else 'out' }}" aria-hidden="true">{{ icon('repeat' if e.frequency != 'Once' else 'clock') }}</span>
+                            <div class="entry-main">
+                                <div class="entry-title">{{ e.description }}</div>
+                                <div class="entry-meta">{{ e.date|rel_date }} · {{ e.frequency }} · {{ e.category }}</div>
+                            </div>
+                            <div class="rec-amount">
+                                <span class="entry-amount {{ 'pos' if e.cents > 0 else 'neg' }}">{{ e.cents|money(signed=True) }}</span>
+                                <span class="sub">then {{ e.balance_after|money }}</span>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+                {% else %}
+                <div class="empty">Nothing planned. <a href="{{ url_for('recurring') }}">Add your salary and subscriptions</a>.</div>
+                {% endif %}
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='vendor/chart.umd.min.js') }}"></script>
+<script src="{{ url_for('static', filename='forecast.js') }}"></script>
+{% endblock %}
